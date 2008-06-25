@@ -47,26 +47,6 @@ module List = struct
   let group xs = groupBy (=) xs
 end
 
-module List = struct
-  include List
-  let rec span : ('a -> bool) -> 'a list -> 'a list * 'a list =
-    fun p -> function
-        [] -> [],[]
-      | x::xs when p x ->
-          let ys,zs = span p xs in
-          (x::ys,zs)
-      | xs -> [],xs
-
-  let rec groupBy : ('a -> 'a -> bool) -> 'a list -> 'a list list =
-    fun p -> function
-        [] -> []
-      | x::xs ->
-          let ys,zs = span (p x) xs in
-          (x::ys) :: groupBy p zs
-
-  let group xs = groupBy (=) xs
-end
-
 type 'a gen = Gen of (int -> 'a)
 type pretty_str = Format.formatter -> unit -> unit
 
