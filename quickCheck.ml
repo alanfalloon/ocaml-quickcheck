@@ -1,5 +1,6 @@
 module Random = struct
   include Random
+  let int n = int (max n 1)
   let char : char -> char =
     fun lim ->
       let l = Char.code lim in
@@ -194,7 +195,7 @@ module Aribitrary_triple(Fst:ARBITRARY)(Snd:ARBITRARY)(Trd:ARBITRARY) = struct
           ret_gen (v1,v2,v3)
 end
 
-module Aribitrary_list(Elt:ARBITRARY) = struct
+module Arbitrary_list(Elt:ARBITRARY) = struct
   type t = Elt.t list
   let arbitrary =
     sized choose_int0 >>= vector Elt.arbitrary
@@ -319,6 +320,16 @@ let quick = {
   every   = (fun f (n, _) -> Format.fprintf f "%d" n) 
 }
 
+let verbose = {
+  quick with
+    every = begin fun f (n, args) ->
+      let pargs fmt l =
+        List.iter (fun a -> Format.fprintf fmt "@ %a" a ()) l
+      in
+      Format.fprintf f "@[%d:@[<hov 2>%a@]@]@;" n pargs args
+    end
+}
+
 let done_ : string -> int -> string list list -> unit =
   fun mesg ntest stamps ->
     let percentage n m =
@@ -378,5 +389,14 @@ let rec tests : config -> result gen -> int -> int -> string list list -> unit =
                 ntest p result.arguments
       end
 
+module Check(T:TESTABLE) = struct
+  module E=Evaluate(T)
+  let check : config -> T.t -> unit =
+    fun config a ->
+      tests config (E.evaluate a) 0 0 []
+  let test = check quick
+  let quickCheck = test
+  let verboseCheck = check verbose
+end
 
 (* (set (make-local-variable 'flymake-ocaml-build-file) "Makefile") *)
