@@ -47,8 +47,53 @@ module List = struct
   let group xs = groupBy (=) xs
 end
 
+module List = struct
+  include List
+  let rec span : ('a -> bool) -> 'a list -> 'a list * 'a list =
+    fun p -> function
+        [] -> [],[]
+      | x::xs when p x ->
+          let ys,zs = span p xs in
+          (x::ys,zs)
+      | xs -> [],xs
+
+  let rec groupBy : ('a -> 'a -> bool) -> 'a list -> 'a list list =
+    fun p -> function
+        [] -> []
+      | x::xs ->
+          let ys,zs = span (p x) xs in
+          (x::ys) :: groupBy p zs
+
+  let group xs = groupBy (=) xs
+end
+
 type 'a gen = Gen of (int -> 'a)
 type pretty_str = Format.formatter -> unit -> unit
+
+module type PSHOW = sig
+  type t
+  val show : t -> pretty_str
+end
+
+module type SHOW = sig
+  type t
+  val show : t -> string
+end
+
+module Show(P:PSHOW) = struct
+  open Buffer
+  open Format
+  type t = P.t
+  let show : t -> string =
+    fun x ->
+      let f _ =
+        let str = contents stdbuf in
+        clear stdbuf;
+        str
+      in
+      clear stdbuf;
+      kfprintf f str_formatter "@[%a@]@?" (P.show x) ()
+end
 
 (* generator functions *)
 
@@ -115,30 +160,64 @@ let vector : 'a gen -> int -> 'a list gen =
 let oneof : 'a gen list -> 'a gen =
   fun gens -> elements gens >>= fun x -> x
 
-module Arbitrary = struct
-  let unit = ret_gen ()
-  let bool = elements [true; false]
-  let char =
+module type ARBITRARY = sig
+  type t
+  val arbitrary : t gen
+end
+
+module Arbitrary_unit = struct
+  type t = unit
+  let arbitrary = ret_gen ()
+end
+
+module Arbitrary_bool = struct
+  type t = bool
+  let arbitrary = elements [true; false]
+end
+
+module Arbitrary_char = struct
+  type t = char
+  let arbitrary =
     choose_int (32,255) >>= fun c -> 
       ret_gen (Char.chr c)
-  let int = sized (fun n -> choose_int (-n, n))
-  let float =
-    int >>= fun a ->
-      int >>= fun b ->
+end
+
+module Arbitrary_int = struct
+  type t = int
+  let arbitrary = sized (fun n -> choose_int (-n, n))
+end
+
+module Arbitrary_float = struct
+  type t = float
+  let arbitrary =
+    Arbitrary_int.arbitrary >>= fun a ->
+      Arbitrary_int.arbitrary >>= fun b ->
         sized choose_int0 >>= fun c ->
           ret_gen
             (float a +. (float b /. (float c +. 1.)))
-  let pair a1 a2 =
-    a1 >>= fun v1 ->
-      a2 >>= fun v2 ->
+end
+
+module Aribitrary_pair(Fst:ARBITRARY)(Snd:ARBITRARY) = struct
+  type t = Fst.t * Snd.t
+  let arbitrary =
+    Fst.arbitrary >>= fun v1 ->
+      Snd.arbitrary >>= fun v2 ->
         ret_gen (v1,v2)
-  let triple a1 a2 a3 =
-    a1 >>= fun v1 ->
-      a2 >>= fun v2 ->
-        a3 >>= fun v3 ->
+end
+
+module Aribitrary_triple(Fst:ARBITRARY)(Snd:ARBITRARY)(Trd:ARBITRARY) = struct
+  type t = Fst.t * Snd.t * Trd.t
+  let arbitrary =
+    Fst.arbitrary >>= fun v1 ->
+      Snd.arbitrary >>= fun v2 ->
+        Trd.arbitrary >>= fun v3 ->
           ret_gen (v1,v2,v3)
-  let list e =
-    sized choose_int0 >>= vector e
+end
+
+module Aribitrary_list(Elt:ARBITRARY) = struct
+  type t = Elt.t list
+  let arbitrary =
+    sized choose_int0 >>= vector Elt.arbitrary
 end
 
 (*********** testable ************)
@@ -149,39 +228,101 @@ type result = {
   arguments : pretty_str list;
 }
 
-let nothing : result = {ok=None; stamp=[]; arguments=[]}
-
 type property = Prop of result gen
+
+module type TESTABLE = sig
+  type t
+  val property : t -> property
+end
+
+let nothing : result = {ok=None; stamp=[]; arguments=[]}
 
 let result : result -> property =
   fun res -> Prop (ret_gen res)
 
-let evaluate : ('a -> property) -> 'a -> result gen =
-  fun property a ->
-    let Prop gen = property a in
-    gen
+module Testable_unit = struct
+  type t = unit
+  let property () = result nothing
+end
 
-let forAll : ('a -> pretty_str) -> ('b -> property) ->
-  'a gen -> ('a -> 'b) -> property =
-  fun show_a property_b gen body ->
+module Testable_bool = struct
+  type t = bool
+  let property b = result {nothing with ok=Some b}
+end
+
+module Testable_result = struct
+  type t = result
+  let property r = result r
+end
+
+module Testable_property = struct
+  type t = property
+  let property p = p
+end
+
+module Evaluate(T:TESTABLE) = struct
+  let evaluate : T.t -> result gen =
+    fun a ->
+      let Prop gen = T.property a in
+      gen
+end
+
+module ForAll(S:PSHOW)(T:TESTABLE) = struct
+  module E = Evaluate(T)
+  let forAll : S.t gen -> (S.t -> T.t) -> property =
+  fun gen body ->
     let argument a res =
-      { res with arguments = show_a a ::res.arguments }
+      { res with arguments = S.show a ::res.arguments }
     in
     Prop
       (gen >>= fun a ->
-         evaluate property_b (body a) >>= fun res ->
+         E.evaluate (body a) >>= fun res ->
            ret_gen (argument a res))
+end
 
-module Testable = struct
-  type 'a t = 'a -> property
-  let unit _ = result nothing
-  let bool b = result {nothing with ok=Some b}
-  let result r = result r
-  let property p = p
-  let f : 'a gen -> ('a -> pretty_str) -> ('b -> property) ->
-    ('a -> 'b) -> property =
-    fun arbitrary_a show_a property_b f ->
-      forAll show_a property_b arbitrary_a f
+module Testable_fun
+  (A:ARBITRARY)
+  (S:PSHOW with type t = A.t)
+  (T:TESTABLE) =
+struct
+  module F = ForAll(S)(T)
+  type t = A.t -> T.t
+  let property : t -> property =
+    fun f ->
+      F.forAll A.arbitrary f
+end
+
+module Implies(T:TESTABLE) = struct
+  let (==>) : bool -> T.t -> property =
+    fun b a ->
+      if b
+      then T.property a
+      else Testable_unit.property ()
+end
+
+module Label(T:TESTABLE) = struct
+  module E = Evaluate(T)
+  let label : string -> T.t -> property =
+    fun s a ->
+      let add r = {r with stamp = s :: r.stamp } in
+      let a' = E.evaluate a in
+      Prop (map_gen add a')
+end
+
+module Classify(T:TESTABLE) = struct
+  module L = Label(T)
+  let classify : bool -> string -> T.t -> property =
+    function
+        true -> L.label
+      | false -> fun _ -> T.property
+  let trivial : bool -> T.t -> property =
+    fun b -> classify b "trivial"
+end
+
+module Collect(S:SHOW)(T:TESTABLE) = struct
+  module L = Label(T)
+  let collect : S.t -> T.t -> property =
+    fun v -> L.label (S.show v)
 end
 
 type config = {
