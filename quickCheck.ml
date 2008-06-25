@@ -27,6 +27,26 @@ module Random = struct
       Char.chr i
 end
 
+module List = struct
+  include List
+  let rec span : ('a -> bool) -> 'a list -> 'a list * 'a list =
+    fun p -> function
+        [] -> [],[]
+      | x::xs when p x ->
+          let ys,zs = span p xs in
+          (x::ys,zs)
+      | xs -> [],xs
+
+  let rec groupBy : ('a -> 'a -> bool) -> 'a list -> 'a list list =
+    fun p -> function
+        [] -> []
+      | x::xs ->
+          let ys,zs = span (p x) xs in
+          (x::ys) :: groupBy p zs
+
+  let group xs = groupBy (=) xs
+end
+
 type 'a gen = Gen of (int -> 'a)
 type pretty_str = Format.formatter -> unit -> unit
 
@@ -180,7 +200,35 @@ let quick = {
 
 let done_ : string -> int -> string list list -> unit =
   fun mesg ntest stamps ->
-    Format.printf "%s %d" mesg ntest
+    let percentage n m =
+      Format.sprintf "%2d%%" ((100 * n) / m)
+    in
+    let entry (n, xs) =
+      Format.sprintf "%s %s" (percentage n ntest) (String.concat ", " xs)
+    in
+    let pairLength = function
+        (xs::_) as xss -> (List.length xss, xs)
+      | [] -> assert false
+    in
+    let display = function
+        [] -> ".\n"
+      | [x] -> Format.sprintf " (%s).\n" x
+      | xs ->
+          String.concat "\n" ("." :: List.map (Format.sprintf "%s.") xs)
+    in
+    let not_null = function [] -> false | _ -> true in
+    let table =
+      display
+        (List.map entry
+           (List.rev
+              (List.sort compare
+                 (List.map pairLength
+                    (List.group
+                       (List.sort compare
+                          (List.filter not_null
+                             stamps)))))))
+    in
+    Format.printf "%s %d tests%s" mesg ntest table
 
 let rec tests : config -> result gen -> int -> int -> string list list -> unit =
     fun config gen ntest nfail stamps ->
