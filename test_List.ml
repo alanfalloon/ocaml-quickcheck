@@ -21,17 +21,24 @@ module PShow_char = struct
       Format.fprintf fmt "%C" c
 end
 
-let prop_revrev : char list -> bool =
+module PShow_int = struct
+  type t = int
+  let show : t -> pretty_str =
+    fun c fmt () ->
+      Format.fprintf fmt "%d" c
+end
+
+let prop_revrev : 'a list -> bool =
   fun xs -> List.rev (List.rev xs) = xs
 
-module Arbitrary_char_list =
-  Arbitrary_list(Arbitrary_char)
-module PShow_char_list =
-  PShow_list(PShow_char)
+module AL =
+  Arbitrary_list(Arbitrary_int)
+module SL =
+  PShow_list(PShow_int)
 module Testable_char_list_to_bool =
   Testable_fun
-    (Arbitrary_char_list)
-    (PShow_char_list)
+    (AL)
+    (SL)
     (Testable_bool)
 module C = Check(Testable_char_list_to_bool)
 let () = C.verboseCheck prop_revrev
