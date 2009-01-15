@@ -326,7 +326,7 @@ let verbose = {
       let pargs fmt l =
         List.iter (fun a -> Format.fprintf fmt "@ %a" a ()) l
       in
-      Format.fprintf f "@[%d:@[<hov 2>%a@]@]@;" n pargs args
+      Format.fprintf f "@[%d:@[<hov 2>%a@]@]@." n pargs args
     end
 }
 
