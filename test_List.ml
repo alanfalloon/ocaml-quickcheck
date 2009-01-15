@@ -41,4 +41,4 @@ module Testable_char_list_to_bool =
     (SL)
     (Testable_bool)
 module C = Check(Testable_char_list_to_bool)
-let () = C.verboseCheck prop_revrev
+let () = C.quickCheck prop_revrev

@@ -317,7 +317,7 @@ let quick = {
   maxTest = 100;
   maxFail = 1000;
   size    = (fun n -> 3 + n / 2);
-  every   = (fun f (n, _) -> Format.fprintf f "%d" n) 
+  every   = (fun _ (_, _) -> ()) 
 }
 
 let verbose = {
