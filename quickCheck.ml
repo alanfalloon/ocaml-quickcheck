@@ -76,6 +76,34 @@ module Show(P:PSHOW) = struct
       kfprintf f str_formatter "@[%a@]@?" (P.show x) ()
 end
 
+module PShow_list(Elt:PSHOW) = struct
+  type t = Elt.t list
+  let show : t -> pretty_str =
+    fun xs fmt () ->
+      let pp = Format.fprintf in
+      match List.map Elt.show xs with
+          [] -> pp fmt "[]"
+        | a1::an ->
+            let pprest f =
+              List.iter (fun e -> pp f ";@ %a" e ())
+            in
+	    pp fmt "[%a%a]" a1 () pprest an
+end
+
+module PShow_char = struct
+  type t = char
+  let show : t -> pretty_str =
+    fun c fmt () ->
+      Format.fprintf fmt "%C" c
+end
+
+module PShow_int = struct
+  type t = int
+  let show : t -> pretty_str =
+    fun c fmt () ->
+      Format.fprintf fmt "%d" c
+end
+
 (* generator functions *)
 
 let sized : (int -> 'a gen) -> 'a gen =
