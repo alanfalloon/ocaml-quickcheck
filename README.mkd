@@ -1,0 +1,15 @@
+Ocaml-QuickCheck -- A Mechanical Translation of QuickCheck to OCaml
+===================================================================
+
+This is translation of
+[QuickCheck](http://www.cs.chalmers.se/~rjmh/QuickCheck/) from
+[Haskell](http://www.haskell.org/) into
+[Ocaml](http://caml.inria.fr/).
+
+Mostly it is an experiment to see what Haskell code that makes heavy
+use of [type-classes](http://www.haskell.org/tutorial/classes.html)
+looks like when converted to OCamls
+[modules](http://caml.inria.fr/pub/docs/manual-ocaml/manual004.html). Unfortunately,
+its not all that pretty, but if you want a working clone of QuickCheck
+for Ocaml here it is. For an example on how to write properties see
+[test_List.ml](http://github.com/alanfalloon/ocaml-quickcheck/blob/a367f9f3fb3f3f08541dbb4c578e89400db2a67b/test_List.ml)
