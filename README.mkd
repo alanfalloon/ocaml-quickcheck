@@ -13,3 +13,5 @@ looks like when converted to OCamls
 its not all that pretty, but if you want a working clone of QuickCheck
 for Ocaml here it is. For an example on how to write properties see
 [test_List.ml](http://github.com/alanfalloon/ocaml-quickcheck/blob/a367f9f3fb3f3f08541dbb4c578e89400db2a67b/test_List.ml)
+
+If you are interested you can go to my blog to hear more about [how I converted the code and the differences that were introduced](http://brierwooddesign.com/2009/1/16/ocaml-quickcheck-translating-quickcheck-from-haskell-type-classes-to-ocaml-modules)
